@@ -5,14 +5,20 @@ const path = require("path");
 const fs = require("fs");
 
 const app = express();
+
 app.use(cors());
 app.use(express.json());
 
-app.use(express.static("../frontend"));
+const uploadsDir = "uploads";
+
+// create uploads folder if it doesn't exist
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir);
+}
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, "uploads/");
+    cb(null, uploadsDir);
   },
   filename: function (req, file, cb) {
     cb(null, Date.now() + path.extname(file.originalname));
@@ -23,15 +29,22 @@ const upload = multer({ storage: storage });
 
 app.post("/upload", upload.single("image"), (req, res) => {
 
+  try {
+
     const description = req.body.description;
     const imageName = req.file.filename;
 
     const newReport = {
-        image: imageName,
-        description: description
+      image: imageName,
+      description: description
     };
 
-    const data = JSON.parse(fs.readFileSync("reports.json"));
+    let data = [];
+
+    if (fs.existsSync("reports.json")) {
+      const fileContent = fs.readFileSync("reports.json");
+      data = JSON.parse(fileContent || "[]");
+    }
 
     data.push(newReport);
 
@@ -39,9 +52,19 @@ app.post("/upload", upload.single("image"), (req, res) => {
 
     console.log("Report saved:", newReport);
 
-    res.send("Report uploaded successfully");
+    res.json({
+      message: "Report uploaded successfully!"
+    });
 
+  } catch (error) {
 
+    console.error(error);
+
+    res.status(500).json({
+      message: "Upload failed"
+    });
+
+  }
 
 });
 
